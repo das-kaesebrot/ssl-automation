@@ -248,9 +248,9 @@ def run_renewal(
                     chown(certpath_target_dir, cert_owner, cert_group)
             
             logger.debug(f"Copying '{certpath_le_fullchain}' to '{certpath_target_dir}'")
-            copyfile(certpath_le_fullchain, certpath_target_dir)
+            copyfile(certpath_le_fullchain, os.path.join(certpath_target_dir, 'fullchain.pem'))
             logger.debug(f"Copying '{certpath_le_privkey}' to '{certpath_target_dir}'")
-            copyfile(certpath_le_privkey, certpath_target_dir)
+            copyfile(certpath_le_privkey, os.path.join(certpath_target_dir, 'privkey.pem'))
             
             if cert_owner:
                 logger.debug(f"Setting file ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
