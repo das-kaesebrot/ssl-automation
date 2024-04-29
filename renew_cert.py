@@ -142,6 +142,51 @@ def reload_systemd_unit(unit_name: str):
     systemctl_result.check_returncode()
 
 
+def copy_certs(
+    certpath_target_root: str,
+    domain: str,
+    cert_owner: str,
+    cert_group: str,
+    certpath_le_fullchain: str,
+    certpath_le_privkey: str,
+):
+
+    logger = logging.getLogger()
+
+    certpath_target_dir = os.path.join(certpath_target_root.rstrip("/"), domain)
+
+    from shutil import copyfile, chown
+
+    logger.info(
+        f"Copying generated fullchain and privkey to output folder '{certpath_target_dir}'"
+    )
+
+    if not os.path.isdir(certpath_target_dir):
+        logger.info(f"Folder '{certpath_target_dir}' doesn't exist yet, creating it")
+        os.mkdir(certpath_target_dir)
+
+        if cert_owner:
+            logger.debug(
+                f"Setting '{certpath_target_dir}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}"
+            )
+            chown(certpath_target_dir, cert_owner, cert_group)
+
+    certpath_fullchain_target = os.path.join(certpath_target_dir, "fullchain.pem")
+    logger.debug(f"Copying '{certpath_le_fullchain}' to '{certpath_fullchain_target}'")
+    copyfile(certpath_le_fullchain, certpath_fullchain_target)
+    certpath_privkey_target = os.path.join(certpath_target_dir, "privkey.pem")
+    logger.debug(f"Copying '{certpath_le_privkey}' to '{certpath_privkey_target}'")
+    copyfile(certpath_le_privkey, certpath_privkey_target)
+
+    if cert_owner:
+        logger.debug(
+            f"Setting file ownership to {cert_owner}{':' + cert_group if cert_group else ''}"
+        )
+        chown(certpath_fullchain_target, cert_owner, cert_group)
+        chown(certpath_privkey_target, cert_owner, cert_group)
+        os.chmod(certpath_privkey_target, 0o600)
+
+
 def run_renewal(
     mail: str,
     domain: str,
@@ -235,46 +280,14 @@ def run_renewal(
         )
 
         if no_concat:
-            certpath_target_dir = os.path.join(cert_dir.rstrip("/"), domain)
-
-            from shutil import copyfile, chown
-
-            logger.info(
-                f"Copying generated fullchain and privkey to output folder '{certpath_target_dir}'"
+            copy_certs(
+                certpath_target_root=cert_dir,
+                domain=domain,
+                cert_owner=cert_owner,
+                cert_group=cert_group,
+                certpath_le_fullchain=certpath_le_fullchain,
+                certpath_le_privkey=certpath_le_privkey,
             )
-
-            if not os.path.isdir(certpath_target_dir):
-                logger.info(
-                    f"Folder '{certpath_target_dir}' doesn't exist yet, creating it"
-                )
-                os.mkdir(certpath_target_dir)
-
-                if cert_owner:
-                    logger.debug(
-                        f"Setting '{certpath_target_dir}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}"
-                    )
-                    chown(certpath_target_dir, cert_owner, cert_group)
-
-            certpath_fullchain_target = os.path.join(
-                certpath_target_dir, "fullchain.pem"
-            )
-            logger.debug(
-                f"Copying '{certpath_le_fullchain}' to '{certpath_fullchain_target}'"
-            )
-            copyfile(certpath_le_fullchain, certpath_fullchain_target)
-            certpath_privkey_target = os.path.join(certpath_target_dir, "privkey.pem")
-            logger.debug(
-                f"Copying '{certpath_le_privkey}' to '{certpath_privkey_target}'"
-            )
-            copyfile(certpath_le_privkey, certpath_privkey_target)
-
-            if cert_owner:
-                logger.debug(
-                    f"Setting file ownership to {cert_owner}{':' + cert_group if cert_group else ''}"
-                )
-                chown(certpath_fullchain_target, cert_owner, cert_group)
-                chown(certpath_privkey_target, cert_owner, cert_group)
-                os.chmod(certpath_privkey_target, 0o600)
 
         else:
             certpath_target = os.path.join(cert_dir.rstrip("/"), f"{domain}.pem")
