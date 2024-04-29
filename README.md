@@ -2,8 +2,8 @@
 
 This folder contains scripts required for auto-renewal of Let's Encrypt issued certificates.
 
-To use, either run `./renew-haproxy-cert.py` directly or install a cron job for `./renew-multiple-certs.sh` like so:
+To use, either run `./renew_cert.py` directly or install a cron job for `./renew-multiple-certs.py` like so:
 
 ```cron
-0 4 * * * root /path/to/script/renew-multiple-certs.sh mymail@example.com domain1.example.com domain2.example.com
+0 4 * * * root /path/to/script/renew-multiple-certs.py -s -m mymail@example.com -D domain1.example.com domain2.example.com
 ```
