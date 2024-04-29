@@ -121,7 +121,7 @@ def main():
         type=str,
         help="Owner for the target certificate(s)",
         default=ARG_CERT_OWNER,
-    )    
+    )
     parser.add_argument(
         "--cert-group",
         type=str,
@@ -132,6 +132,7 @@ def main():
     args = parser.parse_args()
     run_renewal(**vars(args))
 
+
 def reload_systemd_unit(unit_name: str):
     logging.getLogger().debug(f"Reloading systemd service '{unit_name}'")
 
@@ -139,6 +140,7 @@ def reload_systemd_unit(unit_name: str):
         ["systemctl", "reload", unit_name], capture_output=True
     )
     systemctl_result.check_returncode()
+
 
 def run_renewal(
     mail: str,
@@ -154,7 +156,7 @@ def run_renewal(
     systemd_unit: str = ARG_SYSTEMD_UNIT,
     no_concat: bool = ARG_NO_CONCAT,
     cert_owner: str = ARG_CERT_OWNER,
-    cert_group: str = ARG_CERT_GROUP
+    cert_group: str = ARG_CERT_GROUP,
 ):
     try:
         logging.basicConfig(
@@ -170,17 +172,17 @@ def run_renewal(
 
         if silent:
             logger.setLevel(logging.WARN)
-            
+
         logger.debug(f"Renewing cert for '{domain}'")
 
         expiry_seconds = expiry_days * SECONDS_PER_DAY
 
         le_certpath = os.path.join(le_cert_dir.rstrip("/"), domain, "fullchain.pem")
-        
+
         skip_certbot = False
 
         assert isinstance(expiry_seconds, int)
-        
+
         # check whether the cert is valid for longer than the given expiry time (has to be given in seconds to openssl)
         openssl_args = [
             "openssl",
@@ -201,7 +203,7 @@ def run_renewal(
             skip_certbot = True
         except subprocess.CalledProcessError as e:
             pass
-        
+
         # only run certbot if forced or not skipped
         if force or not skip_certbot:
             certbot_args = [
@@ -231,41 +233,55 @@ def run_renewal(
         certpath_le_privkey = os.path.join(
             le_cert_dir.rstrip("/"), domain, "privkey.pem"
         )
-        
+
         if no_concat:
             certpath_target_dir = os.path.join(cert_dir.rstrip("/"), domain)
-            
+
             from shutil import copyfile, chown
-            
-            logger.info(f"Copying generated fullchain and privkey to output folder '{certpath_target_dir}'")
-            
+
+            logger.info(
+                f"Copying generated fullchain and privkey to output folder '{certpath_target_dir}'"
+            )
+
             if not os.path.isdir(certpath_target_dir):
-                logger.info(f"Folder '{certpath_target_dir}' doesn't exist yet, creating it")
+                logger.info(
+                    f"Folder '{certpath_target_dir}' doesn't exist yet, creating it"
+                )
                 os.mkdir(certpath_target_dir)
-                
+
                 if cert_owner:
-                    logger.debug(f"Setting '{certpath_target_dir}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
+                    logger.debug(
+                        f"Setting '{certpath_target_dir}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}"
+                    )
                     chown(certpath_target_dir, cert_owner, cert_group)
-            
-            certpath_fullchain_target = os.path.join(certpath_target_dir, 'fullchain.pem')
-            logger.debug(f"Copying '{certpath_le_fullchain}' to '{certpath_fullchain_target}'")
+
+            certpath_fullchain_target = os.path.join(
+                certpath_target_dir, "fullchain.pem"
+            )
+            logger.debug(
+                f"Copying '{certpath_le_fullchain}' to '{certpath_fullchain_target}'"
+            )
             copyfile(certpath_le_fullchain, certpath_fullchain_target)
-            certpath_privkey_target = os.path.join(certpath_target_dir, 'privkey.pem')
-            logger.debug(f"Copying '{certpath_le_privkey}' to '{certpath_privkey_target}'")
+            certpath_privkey_target = os.path.join(certpath_target_dir, "privkey.pem")
+            logger.debug(
+                f"Copying '{certpath_le_privkey}' to '{certpath_privkey_target}'"
+            )
             copyfile(certpath_le_privkey, certpath_privkey_target)
-            
+
             if cert_owner:
-                logger.debug(f"Setting file ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
+                logger.debug(
+                    f"Setting file ownership to {cert_owner}{':' + cert_group if cert_group else ''}"
+                )
                 chown(certpath_fullchain_target, cert_owner, cert_group)
                 chown(certpath_privkey_target, cert_owner, cert_group)
                 os.chmod(certpath_privkey_target, 0o600)
-            
+
         else:
             certpath_target = os.path.join(cert_dir.rstrip("/"), f"{domain}.pem")
-            
+
             buf_fullchain: bytes = None
             buf_privkey: bytes = None
-            
+
             logger.debug(
                 f"Concatenating '{certpath_le_fullchain}' and '{certpath_le_privkey}' to '{certpath_target}'"
             )
@@ -281,16 +297,18 @@ def run_renewal(
                 written_bytes += f.write(buf_privkey)
 
                 logger.debug(f"Wrote {written_bytes} byte to '{certpath_target}'")
-            
+
             if cert_owner:
                 from shutil import chown
-                
-                logger.debug(f"Setting '{certpath_target}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
-                
+
+                logger.debug(
+                    f"Setting '{certpath_target}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}"
+                )
+
                 chown(certpath_target, cert_owner, cert_group)
 
         # Reload HAProxy service
-        if not no_reload:
+        if not no_reload:  # double negatives are terrible
             reload_systemd_unit(systemd_unit)
 
     except subprocess.CalledProcessError as e:
