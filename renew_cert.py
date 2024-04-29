@@ -258,6 +258,7 @@ def run_renewal(
                 logger.debug(f"Setting file ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
                 chown(certpath_fullchain_target, cert_owner, cert_group)
                 chown(certpath_privkey_target, cert_owner, cert_group)
+                os.chmod(certpath_privkey_target, 0o600)
             
         else:
             buf_fullchain: bytes = None
