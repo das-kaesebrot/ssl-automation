@@ -25,6 +25,8 @@ ARG_CHALLENGE = "--standalone"
 ARG_CERTBOT_ARGS = "--preferred-challenges http --http-01-port 8888"
 ARG_SYSTEMD_UNIT = "haproxy.service"
 ARG_NO_CONCAT = False
+ARG_CERT_OWNER = None
+ARG_CERT_GROUP = None
 
 
 def main():
@@ -114,6 +116,18 @@ def main():
         action="store_true",
         default=ARG_NO_CONCAT,
     )
+    parser.add_argument(
+        "--cert-owner",
+        type=str,
+        help="Owner for the target certificate(s)",
+        default=ARG_CERT_OWNER,
+    )    
+    parser.add_argument(
+        "--cert-group",
+        type=str,
+        help="Group for the target certificate(s)",
+        default=ARG_CERT_GROUP,
+    )
 
     args = parser.parse_args()
     run_renewal(**vars(args))
@@ -138,7 +152,9 @@ def run_renewal(
     challenge: str = ARG_CHALLENGE,
     certbot_args: str = ARG_CERTBOT_ARGS,
     systemd_unit: str = ARG_SYSTEMD_UNIT,
-    no_concat: bool = ARG_NO_CONCAT
+    no_concat: bool = ARG_NO_CONCAT,
+    cert_owner: str = ARG_CERT_OWNER,
+    cert_group: str = ARG_CERT_GROUP
 ):
     try:
         logging.basicConfig(
@@ -217,18 +233,27 @@ def run_renewal(
         if no_concat:
             certpath_target_dir = os.path.join(cert_dir.rstrip("/"), domain)
             
+            from shutil import copyfile, chown
+            
             logger.info(f"Copying generated fullchain and privkey to output folder '{certpath_target_dir}'")
             
             if not os.path.isdir(certpath_target_dir):
                 logger.info(f"Folder '{certpath_target_dir}' doesn't exist yet, creating it")
                 os.mkdir(certpath_target_dir)
                 
-            from shutil import copyfile
+                if cert_owner:
+                    logger.debug(f"Setting '{certpath_target_dir}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
+                    chown(certpath_target_dir, cert_owner, cert_group)
             
             logger.debug(f"Copying '{certpath_le_fullchain}' to '{certpath_target_dir}'")
             copyfile(certpath_le_fullchain, certpath_target_dir)
             logger.debug(f"Copying '{certpath_le_privkey}' to '{certpath_target_dir}'")
             copyfile(certpath_le_privkey, certpath_target_dir)
+            
+            if cert_owner:
+                logger.debug(f"Setting file ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
+                chown(certpath_le_fullchain, cert_owner, cert_group)
+                chown(certpath_le_privkey, cert_owner, cert_group)
             
         else:
             buf_fullchain: bytes = None
@@ -249,6 +274,13 @@ def run_renewal(
                 written_bytes += f.write(buf_privkey)
 
                 logger.debug(f"Wrote {written_bytes} byte to '{certpath_target}'")
+            
+            if cert_owner:
+                from shutil import chown
+                
+                logger.debug(f"Setting '{certpath_target}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
+                
+                chown(certpath_target, cert_owner, cert_group)
 
         # Reload HAProxy service
         if not no_reload:
