@@ -150,7 +150,6 @@ def copy_certs(
     certpath_le_fullchain: str,
     certpath_le_privkey: str,
 ):
-
     logger = logging.getLogger()
 
     certpath_target_dir = os.path.join(certpath_target_root.rstrip("/"), domain)
@@ -185,6 +184,47 @@ def copy_certs(
         chown(certpath_fullchain_target, cert_owner, cert_group)
         chown(certpath_privkey_target, cert_owner, cert_group)
         os.chmod(certpath_privkey_target, 0o600)
+
+
+def concat_certs(
+    certpath_target_root: str,
+    domain: str,
+    cert_owner: str,
+    cert_group: str,
+    certpath_le_fullchain: str,
+    certpath_le_privkey: str,
+):
+    logger = logging.getLogger()
+
+    certpath_target = os.path.join(certpath_target_root.rstrip("/"), f"{domain}.pem")
+
+    buf_fullchain: bytes = None
+    buf_privkey: bytes = None
+
+    logger.debug(
+        f"Concatenating '{certpath_le_fullchain}' and '{certpath_le_privkey}' to '{certpath_target}'"
+    )
+    # concatenate cert files for haproxy, this is required!
+    with open(certpath_le_fullchain, "rb") as f:
+        buf_fullchain = f.read()
+
+    with open(certpath_le_privkey, "rb") as f:
+        buf_privkey = f.read()
+
+    with open(certpath_target, "wb") as f:
+        written_bytes = f.write(buf_fullchain)
+        written_bytes += f.write(buf_privkey)
+
+        logger.debug(f"Wrote {written_bytes} byte to '{certpath_target}'")
+
+    if cert_owner:
+        from shutil import chown
+
+        logger.debug(
+            f"Setting '{certpath_target}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}"
+        )
+
+        chown(certpath_target, cert_owner, cert_group)
 
 
 def run_renewal(
@@ -288,37 +328,15 @@ def run_renewal(
                 certpath_le_fullchain=certpath_le_fullchain,
                 certpath_le_privkey=certpath_le_privkey,
             )
-
         else:
-            certpath_target = os.path.join(cert_dir.rstrip("/"), f"{domain}.pem")
-
-            buf_fullchain: bytes = None
-            buf_privkey: bytes = None
-
-            logger.debug(
-                f"Concatenating '{certpath_le_fullchain}' and '{certpath_le_privkey}' to '{certpath_target}'"
+            concat_certs(
+                certpath_target_root=cert_dir,
+                domain=domain,
+                cert_owner=cert_owner,
+                cert_group=cert_group,
+                certpath_le_fullchain=certpath_le_fullchain,
+                certpath_le_privkey=certpath_le_privkey,
             )
-            # concatenate cert files for haproxy, this is required!
-            with open(certpath_le_fullchain, "rb") as f:
-                buf_fullchain = f.read()
-
-            with open(certpath_le_privkey, "rb") as f:
-                buf_privkey = f.read()
-
-            with open(certpath_target, "wb") as f:
-                written_bytes = f.write(buf_fullchain)
-                written_bytes += f.write(buf_privkey)
-
-                logger.debug(f"Wrote {written_bytes} byte to '{certpath_target}'")
-
-            if cert_owner:
-                from shutil import chown
-
-                logger.debug(
-                    f"Setting '{certpath_target}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}"
-                )
-
-                chown(certpath_target, cert_owner, cert_group)
 
         # Reload HAProxy service
         if not no_reload:  # double negatives are terrible
