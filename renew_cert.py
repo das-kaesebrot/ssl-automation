@@ -24,6 +24,7 @@ ARG_LE_CERT_DIR = "/etc/letsencrypt/live"
 ARG_CHALLENGE = "--standalone"
 ARG_CERTBOT_ARGS = "--preferred-challenges http --http-01-port 8888"
 ARG_SYSTEMD_UNIT = "haproxy.service"
+ARG_NO_CONCAT = False
 
 
 def main():
@@ -107,6 +108,12 @@ def main():
         help="systemd unit to reload after running renewal (as long as --no-reload isn't passed)",
         default=ARG_SYSTEMD_UNIT,
     )
+    parser.add_argument(
+        "--no-concat",
+        help="Don't concatenate fullchain and key into one file, just copy to a subdirectory by the cert name",
+        action="store_true",
+        default=ARG_NO_CONCAT,
+    )
 
     args = parser.parse_args()
     run_renewal(**vars(args))
@@ -130,7 +137,8 @@ def run_renewal(
     le_cert_dir: str = ARG_LE_CERT_DIR,
     challenge: str = ARG_CHALLENGE,
     certbot_args: str = ARG_CERTBOT_ARGS,
-    systemd_unit: str = ARG_SYSTEMD_UNIT
+    systemd_unit: str = ARG_SYSTEMD_UNIT,
+    no_concat: bool = ARG_NO_CONCAT
 ):
     try:
         logging.basicConfig(
@@ -205,26 +213,42 @@ def run_renewal(
         certpath_le_privkey = os.path.join(
             le_cert_dir.rstrip("/"), domain, "privkey.pem"
         )
+        
+        if no_concat:
+            certpath_target_dir = os.path.join(certpath_target, domain)
+            
+            logger.info(f"Copying generated fullchain and privkey to output folder '{certpath_target_dir}'")
+            
+            if not os.path.isdir(certpath_target_dir):
+                logger.info(f"Folder '{certpath_target_dir}' doesn't exist yet, creating it")
+                os.mkdir(certpath_target_dir)
+                
+            from shutil import copyfile
+            
+            logger.debug(f"Copying '{certpath_le_fullchain}' to '{certpath_target_dir}'")
+            copyfile(certpath_le_fullchain, certpath_target_dir)
+            logger.debug(f"Copying '{certpath_le_privkey}' to '{certpath_target_dir}'")
+            copyfile(certpath_le_privkey, certpath_target_dir)
+            
+        else:
+            buf_fullchain: bytes = None
+            buf_privkey: bytes = None
+            
+            logger.debug(
+                f"Concatenating '{certpath_le_fullchain}' and '{certpath_le_privkey}' to '{certpath_target}'"
+            )
+            # concatenate cert files for haproxy, this is required!
+            with open(certpath_le_fullchain, "rb") as f:
+                buf_fullchain = f.read()
 
-        buf_fullchain: bytes = None
-        buf_privkey: bytes = None
+            with open(certpath_le_privkey, "rb") as f:
+                buf_privkey = f.read()
 
-        logger.debug(
-            f"Concatenating '{certpath_le_fullchain}' and '{certpath_le_privkey}' to '{certpath_haproxy}'"
-        )
+            with open(certpath_target, "wb") as f:
+                written_bytes = f.write(buf_fullchain)
+                written_bytes += f.write(buf_privkey)
 
-        # concatenate cert files for haproxy, this is required!
-        with open(certpath_le_fullchain, "rb") as f:
-            buf_fullchain = f.read()
-
-        with open(certpath_le_privkey, "rb") as f:
-            buf_privkey = f.read()
-
-        with open(certpath_haproxy, "wb") as f:
-            written_bytes = f.write(buf_fullchain)
-            written_bytes += f.write(buf_privkey)
-
-            logger.debug(f"Wrote {written_bytes} to '{certpath_haproxy}'")
+                logger.debug(f"Wrote {written_bytes} byte to '{certpath_target}'")
 
         # Reload HAProxy service
         if not no_reload:
