@@ -247,15 +247,17 @@ def run_renewal(
                     logger.debug(f"Setting '{certpath_target_dir}' ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
                     chown(certpath_target_dir, cert_owner, cert_group)
             
-            logger.debug(f"Copying '{certpath_le_fullchain}' to '{certpath_target_dir}'")
-            copyfile(certpath_le_fullchain, os.path.join(certpath_target_dir, 'fullchain.pem'))
-            logger.debug(f"Copying '{certpath_le_privkey}' to '{certpath_target_dir}'")
-            copyfile(certpath_le_privkey, os.path.join(certpath_target_dir, 'privkey.pem'))
+            certpath_fullchain_target = os.path.join(certpath_target_dir, 'fullchain.pem')
+            logger.debug(f"Copying '{certpath_le_fullchain}' to '{certpath_fullchain_target}'")
+            copyfile(certpath_le_fullchain, certpath_fullchain_target)
+            certpath_privkey_target = os.path.join(certpath_target_dir, 'privkey.pem')
+            logger.debug(f"Copying '{certpath_le_privkey}' to '{certpath_privkey_target}'")
+            copyfile(certpath_le_privkey, certpath_privkey_target)
             
             if cert_owner:
                 logger.debug(f"Setting file ownership to {cert_owner}{':' + cert_group if cert_group else ''}")
-                chown(certpath_le_fullchain, cert_owner, cert_group)
-                chown(certpath_le_privkey, cert_owner, cert_group)
+                chown(certpath_fullchain_target, cert_owner, cert_group)
+                chown(certpath_privkey_target, cert_owner, cert_group)
             
         else:
             buf_fullchain: bytes = None
