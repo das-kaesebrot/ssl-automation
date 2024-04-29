@@ -52,7 +52,7 @@ def main():
     parser.add_argument(
         "--no-reload",
         action="store_true",
-        help="Don't reload HAProxy systemd service after acquiring cert.",
+        help="Don't reload systemd service after acquiring cert.",
         required=False,
         default=ARG_NO_RELOAD,
     )
@@ -76,7 +76,7 @@ def main():
     parser.add_argument(
         "--cert-dir",
         type=str,
-        help="Base directory for HAProxy certificates.",
+        help="Base directory for certificates to be concatenated/written into.",
         default=ARG_CERT_DIR,
         required=False,
     )
@@ -151,7 +151,7 @@ def run_renewal(
 
         expiry_seconds = expiry_days * SECONDS_PER_DAY
 
-        certpath_haproxy = os.path.join(cert_dir.rstrip("/"), f"{domain}.pem")
+        certpath_target = os.path.join(cert_dir.rstrip("/"), f"{domain}.pem")
 
         assert isinstance(expiry_seconds, int)
 
@@ -165,7 +165,7 @@ def run_renewal(
                 str(expiry_seconds),
                 "-noout",
                 "-in",
-                certpath_haproxy,
+                certpath_target,
             ]
             logger.debug(f"Executing command {openssl_args}")
             openssl_result = subprocess.run(openssl_args, capture_output=True)
