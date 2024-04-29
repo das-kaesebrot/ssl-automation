@@ -14,106 +14,149 @@ import logging
 
 SECONDS_PER_DAY = 86400
 
+# default values
+ARG_SILENT = False
+ARG_FORCE = False
+ARG_NO_RELOAD = False
+ARG_EXPIRY_DAYS = 30
+ARG_CERT_DIR = "/etc/ssl/private"
+ARG_LE_CERT_DIR = "/etc/letsencrypt/live"
+ARG_CHALLENGE = "--standalone"
+ARG_CERTBOT_ARGS = "--preferred-challenges http --http-01-port 8888"
+ARG_SYSTEMD_UNIT = "haproxy.service"
+
 
 def main():
-    logging.basicConfig(
-        format="[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
-        level=logging.DEBUG,
+    abs_folder_path = os.path.abspath(os.path.dirname(__file__))
+    parser = argparse.ArgumentParser(
+        description="Acquire/renew Let's Encrypt certificates via certbot",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    logger = logging.getLogger()
 
-    # Check if being run as root
-    if not os.geteuid() == 0:
-        logger.error("You need to execute this script as root")
-        sys.exit(3)
+    parser.add_argument(
+        "-s",
+        "--silent",
+        action="store_true",
+        help="Suppress non-essential logging (so that it runs silently in a cron job)",
+        required=False,
+        default=ARG_SILENT,
+    )
+    parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Force a renewal even if cert is valid for longer than <expiry-days>",
+        required=False,
+        default=ARG_FORCE,
+    )
+    parser.add_argument(
+        "--no-reload",
+        action="store_true",
+        help="Don't reload HAProxy systemd service after acquiring cert.",
+        required=False,
+        default=ARG_NO_RELOAD,
+    )
+    parser.add_argument(
+        "-m",
+        "--mail",
+        type=str,
+        help="Mail address to use for Let's Encrypt",
+        required=True,
+    )
+    parser.add_argument(
+        "-d", "--domain", type=str, help="Domain to renew cert for", required=True
+    )
+    parser.add_argument(
+        "--expiry-days",
+        type=int,
+        help="Minimum validity days before cert is renewed.",
+        required=False,
+        default=ARG_EXPIRY_DAYS,
+    )
+    parser.add_argument(
+        "--cert-dir",
+        type=str,
+        help="Base directory for HAProxy certificates.",
+        default=ARG_CERT_DIR,
+        required=False,
+    )
 
+    parser.add_argument(
+        "--le-cert-dir",
+        type=str,
+        help="Let's Encrypt base directory for acquired certificates.",
+        default=ARG_LE_CERT_DIR,
+        required=False,
+    )
+
+    parser.add_argument(
+        "--challenge",
+        type=str,
+        help="ACME challenge to perform (certbot arg).",
+        default=ARG_CHALLENGE,
+    )
+    parser.add_argument(
+        "--certbot-args",
+        type=str,
+        help="Additional args to pass to certbot, formatted as one string.",
+        default=ARG_CERTBOT_ARGS,
+    )
+    parser.add_argument(
+        "--systemd-unit",
+        type=str,
+        help="systemd unit to reload after running renewal (as long as --no-reload isn't passed)",
+        default=ARG_SYSTEMD_UNIT,
+    )
+
+    args = parser.parse_args()
+    run_renewal(**vars(args))
+
+def reload_systemd_unit(unit_name: str):
+    logging.getLogger().debug(f"Reloading systemd service '{unit_name}'")
+
+    systemctl_result = subprocess.run(
+        ["systemctl", "reload", unit_name], capture_output=True
+    )
+    systemctl_result.check_returncode()
+
+def run_renewal(
+    mail: str,
+    domain: str,
+    silent: bool = ARG_SILENT,
+    force: bool = ARG_FORCE,
+    no_reload: bool = ARG_NO_RELOAD,
+    expiry_days: int = ARG_EXPIRY_DAYS,
+    cert_dir: str = ARG_CERT_DIR,
+    le_cert_dir: str = ARG_LE_CERT_DIR,
+    challenge: str = ARG_CHALLENGE,
+    certbot_args: str = ARG_CERTBOT_ARGS,
+    systemd_unit: str = ARG_SYSTEMD_UNIT
+):
     try:
-        abs_folder_path = os.path.abspath(os.path.dirname(__file__))
-        parser = argparse.ArgumentParser(
-            description="Acquire/renew Let's Encrypt certificates via certbot"
+        logging.basicConfig(
+            format="[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
+            level=logging.DEBUG,
         )
+        logger = logging.getLogger()
 
-        parser.add_argument(
-            "-s",
-            "--silent",
-            action="store_true",
-            help="Suppress non-essential logging (so that it runs silently in a cron job)",
-            required=False,
-            default=False,
-        )
-        parser.add_argument(
-            "-f",
-            "--force",
-            action="store_true",
-            help="Force a renewal even if cert is valid for longer than <expiry-days>",
-            required=False,
-        )
-        parser.add_argument(
-            "--no-reload",
-            action="store_true",
-            help="Don't reload HAProxy systemd service after acquiring cert. Default: false",
-            required=False,
-            default=False,
-        )
-        parser.add_argument(
-            "-m",
-            "--mail",
-            type=str,
-            help="Mail address to use for Let's Encrypt",
-            required=True,
-        )
-        parser.add_argument(
-            "-d", "--domain", type=str, help="Domain to renew cert for", required=True
-        )
-        parser.add_argument(
-            "--expiry-days",
-            type=int,
-            help="Minimum validity days before cert is renewed. Default: 30",
-            required=False,
-            default=30,
-        )
-        parser.add_argument(
-            "--cert-dir",
-            type=str,
-            help="Base directory for HAProxy certificates. Default: '/etc/ssl/private'",
-            default="/etc/ssl/private",
-            required=False,
-        )
+        # Check if being run as root
+        if not os.geteuid() == 0:
+            logger.error("You need to execute this script as root")
+            sys.exit(3)
 
-        parser.add_argument(
-            "--le-cert-dir",
-            type=str,
-            help="Let's Encrypt base directory for acquired certificates. Default: '/etc/letsencrypt/live'",
-            default="/etc/letsencrypt/live",
-            required=False,
-        )
-
-        parser.add_argument(
-            "--challenge",
-            type=str,
-            help="ACME challenge to perform (certbot arg). Default: '--standalone'",
-            default="--standalone",
-        )
-        parser.add_argument(
-            "--certbot-args",
-            type=str,
-            help="Additional args to pass to certbot. Default: '--preferred-challenges http --http-01-port 8888'",
-            default="--preferred-challenges http --http-01-port 8888",
-        )
-
-        args = parser.parse_args()
-
-        if args.silent:
+        if silent:
             logger.setLevel(logging.WARN)
+            
+        logger.debug(f"Renewing cert for '{domain}'")
 
-        expiry_seconds = args.expiry_days * SECONDS_PER_DAY
+        expiry_seconds = expiry_days * SECONDS_PER_DAY
 
-        certpath_haproxy = os.path.join(args.cert_dir.rstrip("/"), f"{args.domain}.pem")
+        certpath_haproxy = os.path.join(cert_dir.rstrip("/"), f"{domain}.pem")
 
         assert isinstance(expiry_seconds, int)
 
         # only run openssl check if we're not forcing a renewal
-        if not args.force:
+        if not force:
             # check whether the cert is valid for longer than the given expiry time (has to be given in seconds to openssl)
             openssl_args = [
                 "openssl",
@@ -140,13 +183,13 @@ def main():
             "certonly",
             "--force-renewal",
             "--email",
-            args.mail,
+            mail,
             "-d",
-            args.domain,
+            domain,
             "--agree-tos",
             "--no-eff-email",
-            args.challenge,
-            *(args.certbot_args.split(" ")),
+            challenge,
+            *(certbot_args.split(" ")),
         ]
 
         logger.debug(f"Executing command {certbot_args}")
@@ -157,10 +200,10 @@ def main():
         logger.debug(f"stderr=\n{certbot_result.stderr.decode()}")
 
         certpath_le_fullchain = os.path.join(
-            args.le_cert_dir.rstrip("/"), args.domain, "fullchain.pem"
+            le_cert_dir.rstrip("/"), domain, "fullchain.pem"
         )
         certpath_le_privkey = os.path.join(
-            args.le_cert_dir.rstrip("/"), args.domain, "privkey.pem"
+            le_cert_dir.rstrip("/"), domain, "privkey.pem"
         )
 
         buf_fullchain: bytes = None
@@ -184,13 +227,8 @@ def main():
             logger.debug(f"Wrote {written_bytes} to '{certpath_haproxy}'")
 
         # Reload HAProxy service
-        if not args.no_reload:
-            logger.debug("Reloading HAProxy systemd service")
-
-            systemctl_result = subprocess.run(
-                ["systemctl", "reload", "haproxy"], capture_output=True
-            )
-            systemctl_result.check_returncode()
+        if not no_reload:
+            reload_systemd_unit(systemd_unit)
 
     except subprocess.CalledProcessError as e:
         logger.exception("Error while executing subprocess")
