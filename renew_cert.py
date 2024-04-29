@@ -175,7 +175,7 @@ def run_renewal(
 
         expiry_seconds = expiry_days * SECONDS_PER_DAY
 
-        certpath_target = os.path.join(le_cert_dir.rstrip("/"), domain, "fullchain.pem")
+        le_certpath = os.path.join(le_cert_dir.rstrip("/"), domain, "fullchain.pem")
         
         skip_certbot = False
 
@@ -189,7 +189,7 @@ def run_renewal(
             str(expiry_seconds),
             "-noout",
             "-in",
-            certpath_target,
+            le_certpath,
         ]
         logger.debug(f"Executing command {openssl_args}")
         openssl_result = subprocess.run(openssl_args, capture_output=True)
@@ -261,6 +261,8 @@ def run_renewal(
                 os.chmod(certpath_privkey_target, 0o600)
             
         else:
+            certpath_target = os.path.join(cert_dir.rstrip("/"), f"{domain}.pem")
+            
             buf_fullchain: bytes = None
             buf_privkey: bytes = None
             
