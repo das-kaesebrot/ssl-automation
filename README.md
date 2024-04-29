@@ -27,11 +27,11 @@ frontend http_in
 	bind *:80
 	bind :::80
 
-    # your regular config goes here
+	# your regular config goes here
 
 	# Test URI to see if its a letsencrypt request
 	# Required for automatic renewals
-    # has to be redirected in the HTTP section, not HTTPS
+	# has to be redirected in the HTTP section, not HTTPS
 	acl letsencrypt-acl path_beg /.well-known/acme-challenge/
 	use_backend letsencrypt_backend if letsencrypt-acl
 
