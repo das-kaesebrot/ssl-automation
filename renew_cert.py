@@ -175,7 +175,7 @@ def run_renewal(
 
         expiry_seconds = expiry_days * SECONDS_PER_DAY
 
-        certpath_target = os.path.join(cert_dir.rstrip("/"), f"{domain}.pem")
+        certpath_target = os.path.join(le_cert_dir.rstrip("/"), domain, "fullchain.pem")
         
         skip_certbot = False
 
