@@ -1,6 +1,6 @@
-# certbot-scripts
+# SSL certificate automation
 
-This folder contains scripts required for auto-renewal of Let's Encrypt issued certificates.
+This folder contains scripts required for auto-renewal of Let's Encrypt issued certificates utilizing certbot.
 
 To use, either run `./renew_cert.py` directly or install a cron job for `./renew-multiple-certs.py` like so:
 
