@@ -215,7 +215,7 @@ def run_renewal(
         )
         
         if no_concat:
-            certpath_target_dir = os.path.join(certpath_target, domain)
+            certpath_target_dir = os.path.join(cert_dir.rstrip("/"), domain)
             
             logger.info(f"Copying generated fullchain and privkey to output folder '{certpath_target_dir}'")
             
