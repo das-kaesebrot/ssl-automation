@@ -176,52 +176,54 @@ def run_renewal(
         expiry_seconds = expiry_days * SECONDS_PER_DAY
 
         certpath_target = os.path.join(cert_dir.rstrip("/"), f"{domain}.pem")
+        
+        skip_certbot = False
 
         assert isinstance(expiry_seconds, int)
-
-        # only run openssl check if we're not forcing a renewal
-        if not force:
-            # check whether the cert is valid for longer than the given expiry time (has to be given in seconds to openssl)
-            openssl_args = [
-                "openssl",
-                "x509",
-                "-checkend",
-                str(expiry_seconds),
-                "-noout",
-                "-in",
-                certpath_target,
-            ]
-            logger.debug(f"Executing command {openssl_args}")
-            openssl_result = subprocess.run(openssl_args, capture_output=True)
-            logger.debug(f"stdout=\n{openssl_result.stdout.decode()}")
-            logger.debug(f"stderr=\n{openssl_result.stderr.decode()}")
-            try:
-                # if this returned with an exit code of 0, the cert is still valid. Nothing to do for now.
-                openssl_result.check_returncode()
-                return 0
-            except subprocess.CalledProcessError as e:
-                pass
-
-        certbot_args = [
-            "certbot",
-            "certonly",
-            "--force-renewal",
-            "--email",
-            mail,
-            "-d",
-            domain,
-            "--agree-tos",
-            "--no-eff-email",
-            challenge,
-            *(certbot_args.split(" ")),
+        
+        # check whether the cert is valid for longer than the given expiry time (has to be given in seconds to openssl)
+        openssl_args = [
+            "openssl",
+            "x509",
+            "-checkend",
+            str(expiry_seconds),
+            "-noout",
+            "-in",
+            certpath_target,
         ]
+        logger.debug(f"Executing command {openssl_args}")
+        openssl_result = subprocess.run(openssl_args, capture_output=True)
+        logger.debug(f"stdout=\n{openssl_result.stdout.decode()}")
+        logger.debug(f"stderr=\n{openssl_result.stderr.decode()}")
+        try:
+            # if this returned with an exit code of 0, the cert is still valid. Nothing to do for now.
+            openssl_result.check_returncode()
+            skip_certbot = True
+        except subprocess.CalledProcessError as e:
+            pass
+        
+        # only run certbot if forced or not skipped
+        if force or not skip_certbot:
+            certbot_args = [
+                "certbot",
+                "certonly",
+                "--force-renewal",
+                "--email",
+                mail,
+                "-d",
+                domain,
+                "--agree-tos",
+                "--no-eff-email",
+                challenge,
+                *(certbot_args.split(" ")),
+            ]
 
-        logger.debug(f"Executing command {certbot_args}")
+            logger.debug(f"Executing command {certbot_args}")
 
-        certbot_result = subprocess.run(certbot_args, capture_output=True)
-        certbot_result.check_returncode()
-        logger.debug(f"stdout=\n{certbot_result.stdout.decode()}")
-        logger.debug(f"stderr=\n{certbot_result.stderr.decode()}")
+            certbot_result = subprocess.run(certbot_args, capture_output=True)
+            certbot_result.check_returncode()
+            logger.debug(f"stdout=\n{certbot_result.stdout.decode()}")
+            logger.debug(f"stderr=\n{certbot_result.stderr.decode()}")
 
         certpath_le_fullchain = os.path.join(
             le_cert_dir.rstrip("/"), domain, "fullchain.pem"
