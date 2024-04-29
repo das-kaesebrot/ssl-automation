@@ -8,6 +8,26 @@ To use, either run `./renew_cert.py` directly or install a cron job for `./renew
 0 4 * * * root /path/to/script/renew-multiple-certs.py -s -m mymail@example.com -D domain1.example.com domain2.example.com
 ```
 
+Alternatively, create a custom script holding all commands:
+
+```bash
+#!/bin/bash
+
+/path/to/your/cloned/ssl-automation/renew-multiple-certs.py \
+	-m mail@example.com \
+	-D \
+	domain1.example.com \
+	domain2.example.com \
+	$@
+#   ^^ passes arguments given to the bash script to the renewal script
+```
+
+and install that as a cron job (be sure not to omit `--silent`):
+
+```cron
+0 4 * * * root /path/to/your/script.sh --silent
+```
+
 To see script usage, run the following commands:
 
 ```bash
