@@ -317,7 +317,7 @@ def run_renewal(
         domain_arr = ["-d", domain]
         if domain.startswith("*."):
             domain_base = domain.removeprefix("*.")
-            domain_arr.append(["-d", domain_base])
+            domain_arr.extend(["-d", domain_base])
 
         # only run certbot if forced or not skipped
         if force or not skip_certbot:
