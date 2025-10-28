@@ -313,6 +313,11 @@ def run_renewal(
         cert_name_arr = []
         if cert_name:
             cert_name_arr = ["--cert-name", cert_name]
+        
+        domain_arr = ["-d", domain]
+        if domain.startswith("*."):
+            domain_base = domain.removeprefix("*.")
+            domain_arr.append(["-d", domain_base])
 
         # only run certbot if forced or not skipped
         if force or not skip_certbot:
@@ -323,8 +328,7 @@ def run_renewal(
                 "--force-renewal",
                 "--email",
                 mail,
-                "-d",
-                domain,
+                *domain_arr,
                 "--agree-tos",
                 "--no-eff-email",
                 challenge,
