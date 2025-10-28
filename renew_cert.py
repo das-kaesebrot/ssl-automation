@@ -153,10 +153,15 @@ def copy_certs(
     cert_group: str,
     certpath_le_fullchain: str,
     certpath_le_privkey: str,
+    cert_name: str = None,
 ):
     logger = logging.getLogger()
+    
+    cert_folder = domain
+    if cert_name:
+        cert_folder = cert_name
 
-    certpath_target_dir = os.path.join(certpath_target_root.rstrip("/"), domain)
+    certpath_target_dir = os.path.join(certpath_target_root.rstrip("/"), cert_folder)
 
     from shutil import copyfile, chown
 
@@ -197,10 +202,14 @@ def concat_certs(
     cert_group: str,
     certpath_le_fullchain: str,
     certpath_le_privkey: str,
+    cert_name: str = None,
 ):
     logger = logging.getLogger()
+    
+    if not cert_name:
+        cert_name = domain
 
-    certpath_target = os.path.join(certpath_target_root.rstrip("/"), f"{domain}.pem")
+    certpath_target = os.path.join(certpath_target_root.rstrip("/"), f"{cert_name}.pem")
 
     buf_fullchain: bytes = None
     buf_privkey: bytes = None
@@ -266,8 +275,12 @@ def run_renewal(
         logger.debug(f"Renewing cert for '{domain}'")
 
         expiry_seconds = expiry_days * SECONDS_PER_DAY
+        
+        cert_folder = domain
+        if cert_name:
+            cert_folder = cert_name
 
-        le_certpath = os.path.join(le_cert_dir.rstrip("/"), domain, "fullchain.pem")
+        le_certpath = os.path.join(le_cert_dir.rstrip("/"), cert_folder, "fullchain.pem")
 
         skip_certbot = False
 
@@ -326,10 +339,10 @@ def run_renewal(
             logger.debug(f"stderr=\n{certbot_result.stderr.decode()}")
 
         certpath_le_fullchain = os.path.join(
-            le_cert_dir.rstrip("/"), domain, "fullchain.pem"
+            le_cert_dir.rstrip("/"), cert_folder, "fullchain.pem"
         )
         certpath_le_privkey = os.path.join(
-            le_cert_dir.rstrip("/"), domain, "privkey.pem"
+            le_cert_dir.rstrip("/"), cert_folder, "privkey.pem"
         )
 
         if no_concat:
