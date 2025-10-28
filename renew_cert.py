@@ -22,6 +22,7 @@ ARG_EXPIRY_DAYS = 30
 ARG_CERT_DIR = "/etc/ssl/private"
 ARG_LE_CERT_DIR = "/etc/letsencrypt/live"
 ARG_CHALLENGE = "standalone"
+ARG_CERT_NAME = None
 ARG_CERTBOT_ARGS = "--preferred-challenges http --http-01-port 8888"
 ARG_SYSTEMD_UNIT = "haproxy.service"
 ARG_NO_CONCAT = False
@@ -68,6 +69,9 @@ def main():
     )
     parser.add_argument(
         "-d", "--domain", type=str, help="Domain to renew cert for", required=True
+    )
+    parser.add_argument(
+        "--cert-name", type=str, help="Certificate name to use in filesystem", required=False, default=None
     )
     parser.add_argument(
         "--expiry-days",
@@ -237,6 +241,7 @@ def run_renewal(
     cert_dir: str = ARG_CERT_DIR,
     le_cert_dir: str = ARG_LE_CERT_DIR,
     challenge: str = ARG_CHALLENGE,
+    cert_name: str = ARG_CERT_NAME,
     certbot_args: str = ARG_CERTBOT_ARGS,
     systemd_unit: str = ARG_SYSTEMD_UNIT,
     no_concat: bool = ARG_NO_CONCAT,
@@ -291,12 +296,17 @@ def run_renewal(
         
         if not challenge.startswith("--"):
             challenge = f"--{challenge}"
+            
+        cert_name_arr = []
+        if cert_name:
+            cert_name_arr = ["--cert-name", cert_name]
 
         # only run certbot if forced or not skipped
         if force or not skip_certbot:
             certbot_args = [
                 "certbot",
                 "certonly",
+                *cert_name_arr,
                 "--force-renewal",
                 "--email",
                 mail,
