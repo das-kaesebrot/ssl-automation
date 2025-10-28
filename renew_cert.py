@@ -353,6 +353,7 @@ def run_renewal(
                 cert_group=cert_group,
                 certpath_le_fullchain=certpath_le_fullchain,
                 certpath_le_privkey=certpath_le_privkey,
+                cert_name=cert_name,
             )
         else:
             concat_certs(
@@ -362,6 +363,7 @@ def run_renewal(
                 cert_group=cert_group,
                 certpath_le_fullchain=certpath_le_fullchain,
                 certpath_le_privkey=certpath_le_privkey,
+                cert_name=cert_name,
             )
 
         # Reload HAProxy service
