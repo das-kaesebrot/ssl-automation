@@ -68,7 +68,7 @@ def main():
         required=True,
     )
     parser.add_argument(
-        "-d", "--domain", type=str, help="Domain to renew cert for", required=True
+        "-d", "--domains", type=str, help="Domain(s) to renew cert for (arg can be specified multiple times)", required=True, action="append",
     )
     parser.add_argument(
         "--cert-name", type=str, help="Certificate name to use in filesystem", required=False, default=None
@@ -134,6 +134,7 @@ def main():
     )
 
     args = parser.parse_args()
+
     run_renewal(**vars(args))
 
 
@@ -148,7 +149,7 @@ def reload_systemd_unit(unit_name: str):
 
 def copy_certs(
     certpath_target_root: str,
-    domain: str,
+    domains: list[str],
     cert_owner: str,
     cert_group: str,
     certpath_le_fullchain: str,
@@ -157,7 +158,7 @@ def copy_certs(
 ):
     logger = logging.getLogger()
     
-    cert_folder = domain
+    cert_folder = domains[0]
     if cert_name:
         cert_folder = cert_name
 
@@ -197,7 +198,7 @@ def copy_certs(
 
 def concat_certs(
     certpath_target_root: str,
-    domain: str,
+    domains: list[str],
     cert_owner: str,
     cert_group: str,
     certpath_le_fullchain: str,
@@ -207,7 +208,7 @@ def concat_certs(
     logger = logging.getLogger()
     
     if not cert_name:
-        cert_name = domain
+        cert_name = domains[0]
 
     certpath_target = os.path.join(certpath_target_root.rstrip("/"), f"{cert_name}.pem")
 
@@ -242,7 +243,7 @@ def concat_certs(
 
 def run_renewal(
     mail: str,
-    domain: str,
+    domains: list[str],
     silent: bool = ARG_SILENT,
     force: bool = ARG_FORCE,
     no_reload: bool = ARG_NO_RELOAD,
@@ -272,11 +273,11 @@ def run_renewal(
         if silent:
             logger.setLevel(logging.WARN)
 
-        logger.debug(f"Renewing cert for '{domain}'")
+        logger.debug(f"Renewing cert for {domains}")
 
         expiry_seconds = expiry_days * SECONDS_PER_DAY
         
-        cert_folder = domain
+        cert_folder = domains[0]
         if cert_name:
             cert_folder = cert_name
 
@@ -314,10 +315,10 @@ def run_renewal(
         if cert_name:
             cert_name_arr = ["--cert-name", cert_name]
         
-        domain_arr = ["-d", domain]
-        if domain.startswith("*."):
-            domain_base = domain.removeprefix("*.")
-            domain_arr.extend(["-d", domain_base])
+        domain_arr = []
+        for domain in domains:
+            domain_arr.append("-d")
+            domain_arr.append(domain)
 
         # only run certbot if forced or not skipped
         if force or not skip_certbot:
@@ -352,7 +353,7 @@ def run_renewal(
         if no_concat:
             copy_certs(
                 certpath_target_root=cert_dir,
-                domain=domain,
+                domains=domains,
                 cert_owner=cert_owner,
                 cert_group=cert_group,
                 certpath_le_fullchain=certpath_le_fullchain,
@@ -362,7 +363,7 @@ def run_renewal(
         else:
             concat_certs(
                 certpath_target_root=cert_dir,
-                domain=domain,
+                domains=domains,
                 cert_owner=cert_owner,
                 cert_group=cert_group,
                 certpath_le_fullchain=certpath_le_fullchain,

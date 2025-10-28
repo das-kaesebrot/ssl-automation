@@ -44,7 +44,7 @@ def main():
 
         for domain in args.domains:
             run_renewal(
-                mail=args.mail, domain=domain, silent=args.silent, no_reload=True
+                mail=args.mail, domains=[domain], silent=args.silent, no_reload=True
             )
 
         reload_systemd_unit(ARG_SYSTEMD_UNIT)
