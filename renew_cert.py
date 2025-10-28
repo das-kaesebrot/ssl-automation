@@ -21,7 +21,7 @@ ARG_NO_RELOAD = False
 ARG_EXPIRY_DAYS = 30
 ARG_CERT_DIR = "/etc/ssl/private"
 ARG_LE_CERT_DIR = "/etc/letsencrypt/live"
-ARG_CHALLENGE = "--standalone"
+ARG_CHALLENGE = "standalone"
 ARG_CERTBOT_ARGS = "--preferred-challenges http --http-01-port 8888"
 ARG_SYSTEMD_UNIT = "haproxy.service"
 ARG_NO_CONCAT = False
@@ -288,6 +288,9 @@ def run_renewal(
             skip_certbot = True
         except subprocess.CalledProcessError:
             pass
+        
+        if not challenge.startswith("--"):
+            challenge = f"--{challenge}"
 
         # only run certbot if forced or not skipped
         if force or not skip_certbot:
