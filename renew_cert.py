@@ -286,7 +286,7 @@ def run_renewal(
             # if this returned with an exit code of 0, the cert is still valid. Nothing to do for now.
             openssl_result.check_returncode()
             skip_certbot = True
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             pass
 
         # only run certbot if forced or not skipped
@@ -349,7 +349,7 @@ def run_renewal(
         sys.stderr.write(e.stderr.decode())
         sys.exit(2)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Generic exception occured")
         sys.exit(1)
 

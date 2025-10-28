@@ -56,7 +56,7 @@ def main():
         sys.stderr.write(e.stderr.decode())
         sys.exit(2)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Generic exception occured")
         sys.exit(1)
 
